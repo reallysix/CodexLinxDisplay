@@ -29,6 +29,8 @@
 2. 打开 DMG，将 `CodexLinxDisplay.app` 拖入“应用程序”。
 3. 启动 App；首次推送时允许 macOS 的“本地网络”权限。
 
+当前预览版尚未经 Apple 公证。如果 macOS 阻止首次启动，请在尝试打开 App 后前往“系统设置 → 隐私与安全性”，点击“仍要打开”。详见 [Apple 官方说明](https://support.apple.com/zh-cn/102445)。
+
 App 不显示在 Dock 中，启动后请在菜单栏找到竖屏图标。
 
 ## 使用
@@ -77,6 +79,8 @@ xcodebuild \
 ## 维护者发布
 
 推送形如 `v0.2.0` 的 tag 会触发 `.github/workflows/release.yml`，完成通用架构构建、Developer ID 签名、Apple 公证、Sparkle 签名与 GitHub Release 上传。正式发布前需在仓库配置以下 Actions Secrets：
+
+同时将 Actions 变量 `ENABLE_SIGNED_RELEASES` 设为 `true`。未配置时，标签只用于手动发布预览版，不会运行正式签名工作流。
 
 - `BUILD_CERTIFICATE_BASE64`
 - `P12_PASSWORD`

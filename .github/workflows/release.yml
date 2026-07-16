@@ -10,6 +10,7 @@ permissions:
 
 jobs:
   release:
+    if: ${{ vars.ENABLE_SIGNED_RELEASES == 'true' }}
     runs-on: macos-15
     steps:
       - name: 检出代码
