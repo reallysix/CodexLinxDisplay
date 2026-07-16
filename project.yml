@@ -1,0 +1,95 @@
+name: CodexLinxDisplay
+
+options:
+  bundleIdPrefix: com.olivia
+  deploymentTarget:
+    macOS: "14.0"
+  xcodeVersion: "26.0"
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    ENABLE_APP_SANDBOX: NO
+    ENABLE_HARDENED_RUNTIME: YES
+
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: 2.9.4
+
+targets:
+  CodexLinxDisplay:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources/Shared
+      - path: Sources/App
+    info:
+      path: Resources/Info.plist
+      properties:
+        CFBundleDisplayName: Codex 屏显
+        CFBundleDevelopmentRegion: zh_CN
+        CFBundleLocalizations:
+          - zh_CN
+        CFBundleName: Codex 屏显
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        LSUIElement: true
+        NSHighResolutionCapable: true
+        NSLocalNetworkUsageDescription: 用于将 Codex 用量图片发送到局域网内的键盘屏幕。
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: true
+        SUEnableAutomaticChecks: true
+        SUFeedURL: https://github.com/luweihuang/CodexLinxDisplay/releases/latest/download/appcast.xml
+        SUScheduledCheckInterval: 86400
+        SUPublicEDKey: jwiJt5w5rRrNO8vccf+VxsmTA8pEDXAgfhHySroY4yc=
+    settings:
+      base:
+        CODE_SIGNING_ALLOWED: YES
+        CODE_SIGNING_REQUIRED: YES
+        CODE_SIGN_IDENTITY: "-"
+        PRODUCT_BUNDLE_IDENTIFIER: com.olivia.CodexLinxDisplay
+        PRODUCT_NAME: CodexLinxDisplay
+    dependencies:
+      - package: Sparkle
+
+  CodexLinxPreview:
+    type: tool
+    platform: macOS
+    sources:
+      - path: Sources/Shared
+      - path: Tools/Preview
+    settings:
+      base:
+        CODE_SIGNING_ALLOWED: NO
+        PRODUCT_BUNDLE_IDENTIFIER: com.olivia.CodexLinxPreview
+        PRODUCT_NAME: CodexLinxPreview
+
+  CodexLinxDisplayTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: Tests
+    dependencies:
+      - target: CodexLinxDisplay
+    hostApplication: CodexLinxDisplay
+    settings:
+      base:
+        CODE_SIGNING_ALLOWED: NO
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.olivia.CodexLinxDisplayTests
+
+schemes:
+  CodexLinxDisplay:
+    build:
+      targets:
+        CodexLinxDisplay: all
+        CodexLinxDisplayTests: [test]
+    test:
+      targets:
+        - CodexLinxDisplayTests
+  CodexLinxPreview:
+    build:
+      targets:
+        CodexLinxPreview: all
