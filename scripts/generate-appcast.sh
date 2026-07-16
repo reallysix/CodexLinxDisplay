@@ -9,8 +9,8 @@ TAG="${2:-v$VERSION}"
 ARCHIVE_NAME="CodexLinxDisplay-v$VERSION"
 TOOLS_DIR="$ROOT_DIR/.build/SourcePackages/artifacts/sparkle/Sparkle/bin"
 WORK_DIR="$ROOT_DIR/.release/appcast"
-DOWNLOAD_URL="https://github.com/luweihuang/CodexLinxDisplay/releases/download/$TAG/"
-PROJECT_URL="https://github.com/luweihuang/CodexLinxDisplay"
+DOWNLOAD_URL="https://github.com/reallysix/CodexLinxDisplay/releases/download/$TAG/"
+PROJECT_URL="https://github.com/reallysix/CodexLinxDisplay"
 
 if [[ ! -x "$TOOLS_DIR/generate_appcast" ]]; then
   xcodebuild \

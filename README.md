@@ -25,7 +25,7 @@
 
 ## 安装
 
-1. 从 [Releases](https://github.com/luweihuang/CodexLinxDisplay/releases/latest) 下载最新的 `CodexLinxDisplay-*.dmg`。
+1. 从 [Releases](https://github.com/reallysix/CodexLinxDisplay/releases/latest) 下载最新的 `CodexLinxDisplay-*.dmg`。
 2. 打开 DMG，将 `CodexLinxDisplay.app` 拖入“应用程序”。
 3. 启动 App；首次推送时允许 macOS 的“本地网络”权限。
 

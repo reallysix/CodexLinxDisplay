@@ -41,7 +41,7 @@ targets:
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: true
         SUEnableAutomaticChecks: true
-        SUFeedURL: https://github.com/luweihuang/CodexLinxDisplay/releases/latest/download/appcast.xml
+        SUFeedURL: https://github.com/reallysix/CodexLinxDisplay/releases/latest/download/appcast.xml
         SUScheduledCheckInterval: 86400
         SUPublicEDKey: jwiJt5w5rRrNO8vccf+VxsmTA8pEDXAgfhHySroY4yc=
     settings:

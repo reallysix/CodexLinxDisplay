@@ -38,7 +38,7 @@
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
 	<key>SUFeedURL</key>
-	<string>https://github.com/luweihuang/CodexLinxDisplay/releases/latest/download/appcast.xml</string>
+	<string>https://github.com/reallysix/CodexLinxDisplay/releases/latest/download/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>jwiJt5w5rRrNO8vccf+VxsmTA8pEDXAgfhHySroY4yc=</string>
 	<key>SUScheduledCheckInterval</key>
