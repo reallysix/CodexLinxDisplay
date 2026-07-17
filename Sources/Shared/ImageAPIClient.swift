@@ -1,5 +1,9 @@
 import Foundation
 
+protocol ImageUploading: Sendable {
+  func upload(_ imageData: Data, endpoint: String) async throws -> ImageUploadResult
+}
+
 enum ImageAPIError: LocalizedError {
   case invalidURL
   case invalidResponse
@@ -29,12 +33,12 @@ enum ImageAPIError: LocalizedError {
   }
 }
 
-struct ImageUploadResult {
+struct ImageUploadResult: Sendable {
   let statusCode: Int
   let responseText: String
 }
 
-struct ImageAPIClient {
+struct ImageAPIClient: ImageUploading {
   func upload(_ imageData: Data, endpoint: String) async throws -> ImageUploadResult {
     guard let url = URL(string: endpoint),
       ["http", "https"].contains(url.scheme?.lowercased() ?? "")

@@ -18,7 +18,9 @@ struct CodexLinxDisplayApp: App {
     MenuBarExtra {
       MenuBarContentView(model: model, updater: updater)
     } label: {
-      if let snapshot = model.snapshot {
+      if model.displayMode == .customImage {
+        Label("图片显示", systemImage: "photo")
+      } else if let snapshot = model.snapshot {
         Label("Codex \(snapshot.remainingPercent)%", systemImage: "rectangle.portrait")
       } else {
         Label("Codex 屏显", systemImage: "rectangle.portrait")

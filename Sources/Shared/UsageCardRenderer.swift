@@ -29,6 +29,45 @@ struct RenderedUsageCard {
 }
 
 @MainActor
+enum CustomImageRenderer {
+  static func render(
+    image: NSImage,
+    safeAreaHeight: CGFloat,
+    jpegQuality: Double
+  ) throws -> RenderedUsageCard {
+    let safeArea = max(
+      UsageCardLayout.minimumSafeArea,
+      min(UsageCardLayout.maximumSafeArea, safeAreaHeight)
+    )
+    let contentHeight = UsageCardLayout.height - safeArea
+
+    let view = VStack(spacing: 0) {
+      Color.black
+        .frame(width: UsageCardLayout.width, height: safeArea)
+
+      Image(nsImage: image)
+        .resizable()
+        .scaledToFill()
+        .frame(width: UsageCardLayout.width, height: contentHeight)
+        .clipped()
+    }
+    .frame(width: UsageCardLayout.width, height: UsageCardLayout.height)
+    .background(Color.black)
+
+    let renderer = ImageRenderer(content: view)
+    renderer.proposedSize = ProposedViewSize(
+      width: UsageCardLayout.width, height: UsageCardLayout.height)
+    renderer.scale = 1
+    renderer.isOpaque = true
+
+    guard let cgImage = renderer.cgImage else {
+      throw UsageCardRendererError.renderFailed
+    }
+    return try makeRenderedImage(cgImage: cgImage, jpegQuality: jpegQuality)
+  }
+}
+
+@MainActor
 enum UsageCardRenderer {
   static func render(
     snapshot: UsageSnapshot?,
@@ -47,29 +86,36 @@ enum UsageCardRenderer {
     guard let cgImage = renderer.cgImage else {
       throw UsageCardRendererError.renderFailed
     }
-    guard cgImage.width == Int(UsageCardLayout.width), cgImage.height == Int(UsageCardLayout.height)
-    else {
-      throw UsageCardRendererError.invalidDimensions
-    }
-
-    let representation = NSBitmapImageRep(cgImage: cgImage)
-    guard
-      let data = representation.representation(
-        using: .jpeg,
-        properties: [.compressionFactor: max(0.5, min(1, jpegQuality))]
-      )
-    else {
-      throw UsageCardRendererError.encodingFailed
-    }
-    guard data.count <= 512 * 1_024 else {
-      throw UsageCardRendererError.fileTooLarge(data.count)
-    }
-
-    return RenderedUsageCard(
-      data: data,
-      image: NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height)),
-      pixelWidth: cgImage.width,
-      pixelHeight: cgImage.height
-    )
+    return try makeRenderedImage(cgImage: cgImage, jpegQuality: jpegQuality)
   }
+}
+
+private func makeRenderedImage(
+  cgImage: CGImage,
+  jpegQuality: Double
+) throws -> RenderedUsageCard {
+  guard cgImage.width == Int(UsageCardLayout.width), cgImage.height == Int(UsageCardLayout.height)
+  else {
+    throw UsageCardRendererError.invalidDimensions
+  }
+
+  let representation = NSBitmapImageRep(cgImage: cgImage)
+  guard
+    let data = representation.representation(
+      using: .jpeg,
+      properties: [.compressionFactor: max(0.5, min(1, jpegQuality))]
+    )
+  else {
+    throw UsageCardRendererError.encodingFailed
+  }
+  guard data.count <= 512 * 1_024 else {
+    throw UsageCardRendererError.fileTooLarge(data.count)
+  }
+
+  return RenderedUsageCard(
+    data: data,
+    image: NSImage(cgImage: cgImage, size: NSSize(width: cgImage.width, height: cgImage.height)),
+    pixelWidth: cgImage.width,
+    pixelHeight: cgImage.height
+  )
 }

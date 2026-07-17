@@ -1,5 +1,9 @@
 import Foundation
 
+protocol CodexRateLimitFetching: Sendable {
+  func fetch() async throws -> UsageSnapshot
+}
+
 enum CodexClientError: LocalizedError {
   case executableNotFound
   case launchFailed(String)
@@ -26,7 +30,7 @@ enum CodexClientError: LocalizedError {
   }
 }
 
-final class CodexRateLimitClient: @unchecked Sendable {
+final class CodexRateLimitClient: CodexRateLimitFetching, @unchecked Sendable {
   private let explicitExecutableURL: URL?
 
   init(executableURL: URL? = nil) {
@@ -97,7 +101,7 @@ final class CodexRateLimitClient: @unchecked Sendable {
           "clientInfo": [
             "name": "codex_linx_display",
             "title": "Codex Linx Display",
-            "version": "0.1.0",
+            "version": "0.2.0",
           ],
           "capabilities": ["experimentalApi": true],
         ],

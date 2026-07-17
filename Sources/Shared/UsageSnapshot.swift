@@ -1,6 +1,6 @@
 import Foundation
 
-struct UsageSnapshot: Equatable {
+struct UsageSnapshot: Equatable, Sendable {
   let remainingPercent: Int
   let resetDate: Date?
   let windowMinutes: Int?

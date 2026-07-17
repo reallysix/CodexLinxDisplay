@@ -1,4 +1,6 @@
+import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct MenuBarContentView: View {
   @ObservedObject var model: AppModel
@@ -32,12 +34,21 @@ struct MenuBarContentView: View {
       }
 
       HStack {
-        Button {
-          model.refreshOnly()
-        } label: {
-          Label("刷新", systemImage: "arrow.clockwise")
+        if model.displayMode == .codex {
+          Button {
+            model.refreshOnly()
+          } label: {
+            Label("刷新", systemImage: "arrow.clockwise")
+          }
+          .disabled(model.isSyncing)
+        } else {
+          Button {
+            chooseCustomImage()
+          } label: {
+            Label("选择图片", systemImage: "photo")
+          }
+          .disabled(model.isSyncing)
         }
-        .disabled(model.isSyncing)
 
         Button {
           model.pushNow()
@@ -88,7 +99,7 @@ struct MenuBarContentView: View {
       VStack(alignment: .leading, spacing: 2) {
         Text("Codex 屏显")
           .font(.headline)
-        Text("Linx68 后台用量卡片")
+        Text(model.displayMode == .codex ? "Linx68 后台用量卡片" : "Linx68 自定义图片")
           .font(.caption)
           .foregroundStyle(.secondary)
       }
@@ -103,15 +114,33 @@ struct MenuBarContentView: View {
   }
 
   private var usageSummary: some View {
-    HStack(spacing: 10) {
-      summaryCell(
-        title: model.snapshot?.windowTitle ?? "剩余用量",
-        value: model.snapshot.map { "\($0.remainingPercent)%" } ?? "--"
-      )
-      summaryCell(
-        title: "可用重置",
-        value: model.snapshot.map { "\($0.availableResetCount) 次" } ?? "--"
-      )
+    Group {
+      if model.displayMode == .codex {
+        HStack(spacing: 10) {
+          summaryCell(
+            title: model.snapshot?.windowTitle ?? "剩余用量",
+            value: model.snapshot.map { "\($0.remainingPercent)%" } ?? "--"
+          )
+          summaryCell(
+            title: "可用重置",
+            value: model.snapshot.map { "\($0.availableResetCount) 次" } ?? "--"
+          )
+        }
+      } else {
+        VStack(alignment: .leading, spacing: 5) {
+          Label(model.customImageName ?? "尚未选择图片", systemImage: "photo")
+            .font(.headline)
+            .lineLimit(1)
+            .truncationMode(.middle)
+
+          Text("Codex 自动刷新已暂停")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
+      }
     }
   }
 
@@ -126,5 +155,18 @@ struct MenuBarContentView: View {
     .frame(maxWidth: .infinity, alignment: .leading)
     .padding(10)
     .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
+  }
+
+  private func chooseCustomImage() {
+    let panel = NSOpenPanel()
+    panel.title = "选择要显示在键盘上的图片"
+    panel.prompt = "选择图片"
+    panel.allowedContentTypes = [.image]
+    panel.allowsMultipleSelection = false
+    panel.canChooseDirectories = false
+
+    if panel.runModal() == .OK, let url = panel.url {
+      model.selectCustomImage(at: url)
+    }
   }
 }
