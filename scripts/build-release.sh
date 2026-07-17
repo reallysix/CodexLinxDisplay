@@ -27,6 +27,12 @@ BUILD_SETTINGS=(
   ARCHS="arm64 x86_64"
 )
 
+if [[ "$SIGNING_IDENTITY" == "-" ]]; then
+  BUILD_SETTINGS+=(ENABLE_HARDENED_RUNTIME=NO)
+else
+  BUILD_SETTINGS+=(ENABLE_HARDENED_RUNTIME=YES)
+fi
+
 if [[ -n "${DEVELOPMENT_TEAM:-}" ]]; then
   BUILD_SETTINGS+=(DEVELOPMENT_TEAM="$DEVELOPMENT_TEAM" CODE_SIGN_STYLE=Manual)
 fi
@@ -41,6 +47,14 @@ xcodebuild \
   "${BUILD_SETTINGS[@]}"
 
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+
+if [[ "$SIGNING_IDENTITY" == "-" ]]; then
+  SIGNING_INFO="$(codesign -dv --verbose=4 "$APP_PATH" 2>&1)"
+  if [[ "$SIGNING_INFO" == *"runtime"* ]]; then
+    echo "adhoc 预览包不能启用 Hardened Runtime，否则无法加载 Sparkle。" >&2
+    exit 1
+  fi
+fi
 
 if [[ -n "$NOTARY_PROFILE" ]]; then
   if [[ "$SIGNING_IDENTITY" == "-" ]]; then
@@ -75,4 +89,3 @@ fi
 echo "发布文件已生成："
 echo "  $DIST_DIR/$ARCHIVE_NAME.dmg"
 echo "  $DIST_DIR/$ARCHIVE_NAME.zip"
-
