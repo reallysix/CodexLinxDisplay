@@ -22,7 +22,9 @@
 		7D4754075467F197D99291CD /* UsageCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D12DA604FF758ADCB6E850BC /* UsageCardView.swift */; };
 		82FBC21E734E9AF253050637 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A75D8776677D666E7C841F /* AppModel.swift */; };
 		9271A678BC0C5AE5DF840516 /* CodexRateLimitClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D201F9235BAABFD77052C6F5 /* CodexRateLimitClient.swift */; };
+		C65F954D1D805A01E7C6E43E /* AppLifecycleController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3E8988674768243B18569B5 /* AppLifecycleController.swift */; };
 		D459B50E202C0C1B62D74956 /* UsageSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F31BBB9EAFF18FC3E59A9A7 /* UsageSnapshot.swift */; };
+		DF6D7C37409567D3700F6283 /* AppLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61F4D254647870A0CBDF0D09 /* AppLifecycleTests.swift */; };
 		DFA42708745D597AE7A17775 /* UsageSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 787F3BE7B4769B1BF97165AB /* UsageSnapshotTests.swift */; };
 		F354EE36F5CD41CEF17BE59A /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 9A7906E5E76882231C1332BA /* Sparkle */; };
 		F7F857AA7A8A07ADCF3737CE /* AppModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E3617FC33595887FB1EFE37 /* AppModelTests.swift */; };
@@ -46,6 +48,7 @@
 		57966CEDE2F0E2EBF43CDCA1 /* UsageCardRenderer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageCardRenderer.swift; sourceTree = "<group>"; };
 		5BBCE500D8A1C5BC100395F4 /* CodexLinxPreview */ = {isa = PBXFileReference; includeInIndex = 0; path = CodexLinxPreview; sourceTree = BUILT_PRODUCTS_DIR; };
 		5C4E784D5D9F2A8F6DA9F59D /* CodexLinxDisplayApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexLinxDisplayApp.swift; sourceTree = "<group>"; };
+		61F4D254647870A0CBDF0D09 /* AppLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLifecycleTests.swift; sourceTree = "<group>"; };
 		657309D17887B9B9B61DB9F5 /* CodexLinxDisplayTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = CodexLinxDisplayTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6F31BBB9EAFF18FC3E59A9A7 /* UsageSnapshot.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageSnapshot.swift; sourceTree = "<group>"; };
 		75A61C34C1209EB3E2A4222D /* CodexLinxDisplay.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CodexLinxDisplay.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -56,6 +59,7 @@
 		C5A75D8776677D666E7C841F /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
 		D12DA604FF758ADCB6E850BC /* UsageCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageCardView.swift; sourceTree = "<group>"; };
 		D201F9235BAABFD77052C6F5 /* CodexRateLimitClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexRateLimitClient.swift; sourceTree = "<group>"; };
+		E3E8988674768243B18569B5 /* AppLifecycleController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLifecycleController.swift; sourceTree = "<group>"; };
 		EB0CFBDA26086A42484EABC7 /* UpdaterController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterController.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -74,6 +78,7 @@
 		04330F53A8AEB47BB6776726 /* Tests */ = {
 			isa = PBXGroup;
 			children = (
+				61F4D254647870A0CBDF0D09 /* AppLifecycleTests.swift */,
 				7E3617FC33595887FB1EFE37 /* AppModelTests.swift */,
 				BC162824EE74ABF8D2868960 /* UsageCardRendererTests.swift */,
 				787F3BE7B4769B1BF97165AB /* UsageSnapshotTests.swift */,
@@ -84,6 +89,7 @@
 		1139D66A6A163C213807C508 /* App */ = {
 			isa = PBXGroup;
 			children = (
+				E3E8988674768243B18569B5 /* AppLifecycleController.swift */,
 				C5A75D8776677D666E7C841F /* AppModel.swift */,
 				5C4E784D5D9F2A8F6DA9F59D /* CodexLinxDisplayApp.swift */,
 				0C0A9F7078CF4808E985B531 /* MenuBarContentView.swift */,
@@ -234,6 +240,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C65F954D1D805A01E7C6E43E /* AppLifecycleController.swift in Sources */,
 				82FBC21E734E9AF253050637 /* AppModel.swift in Sources */,
 				21F7C9D1552F47EF26F43C7F /* CodexLinxDisplayApp.swift in Sources */,
 				577A03D9D0CF0345D7AF0938 /* CodexRateLimitClient.swift in Sources */,
@@ -251,6 +258,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DF6D7C37409567D3700F6283 /* AppLifecycleTests.swift in Sources */,
 				F7F857AA7A8A07ADCF3737CE /* AppModelTests.swift in Sources */,
 				66DBEC97EEC8469D758F7535 /* UsageCardRendererTests.swift in Sources */,
 				DFA42708745D597AE7A17775 /* UsageSnapshotTests.swift in Sources */,

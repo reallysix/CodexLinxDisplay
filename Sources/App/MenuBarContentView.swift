@@ -4,7 +4,8 @@ import UniformTypeIdentifiers
 
 struct MenuBarContentView: View {
   @ObservedObject var model: AppModel
-  let updater: UpdaterController
+  let updater: any UpdateChecking
+  let showSettings: () -> Void
 
   var body: some View {
     VStack(alignment: .leading, spacing: 14) {
@@ -67,7 +68,9 @@ struct MenuBarContentView: View {
       Divider()
 
       HStack {
-        SettingsLink {
+        Button {
+          showSettings()
+        } label: {
           Label("设置", systemImage: "gearshape")
         }
 

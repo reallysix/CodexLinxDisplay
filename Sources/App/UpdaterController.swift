@@ -1,7 +1,13 @@
 import Sparkle
 
 @MainActor
-final class UpdaterController {
+protocol UpdateChecking: AnyObject {
+  func checkForUpdates()
+  var currentVersion: String { get }
+}
+
+@MainActor
+final class UpdaterController: UpdateChecking {
   private let controller: SPUStandardUpdaterController
 
   init() {

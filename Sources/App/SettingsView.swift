@@ -4,7 +4,7 @@ import UniformTypeIdentifiers
 
 struct SettingsView: View {
   @ObservedObject var model: AppModel
-  let updater: UpdaterController
+  let updater: any UpdateChecking
 
   private let intervals = [60, 300, 600, 1_800]
 
