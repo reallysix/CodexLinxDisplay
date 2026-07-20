@@ -46,19 +46,16 @@ struct RenderedUsageCard {
 enum CustomImageRenderer {
   static func render(
     image: NSImage,
-    safeAreaHeight: CGFloat,
+    topInset: CGFloat,
     jpegQuality: Double,
     contentMode: CustomImageContentMode = .fill
   ) throws -> RenderedUsageCard {
-    let safeArea = max(
-      UsageCardLayout.minimumSafeArea,
-      min(UsageCardLayout.maximumSafeArea, safeAreaHeight)
-    )
-    let contentHeight = UsageCardLayout.height - safeArea
+    let clampedTopInset = max(0, min(UsageCardLayout.maximumSafeArea, topInset))
+    let contentHeight = UsageCardLayout.height - clampedTopInset
 
     let view = VStack(spacing: 0) {
       Color.black
-        .frame(width: UsageCardLayout.width, height: safeArea)
+        .frame(width: UsageCardLayout.width, height: clampedTopInset)
 
       Group {
         switch contentMode {

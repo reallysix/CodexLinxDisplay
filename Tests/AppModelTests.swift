@@ -5,6 +5,34 @@ import XCTest
 
 final class AppModelTests: XCTestCase {
   @MainActor
+  func testLayoutSettingsAreIndependentAndCustomImagesDefaultToNoTopInset() throws {
+    let suiteName = "AppModelTests.\(UUID().uuidString)"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defer { defaults.removePersistentDomain(forName: suiteName) }
+
+    defaults.set(68.0, forKey: "safeAreaHeight")
+
+    let model = AppModel(defaults: defaults)
+    XCTAssertEqual(model.codexSafeAreaHeight, 68)
+    XCTAssertEqual(model.customImageTopInset, 0)
+
+    model.setCodexSafeAreaHeight(60)
+    model.setCustomImageTopInset(12)
+
+    let restoredModel = AppModel(defaults: defaults)
+    XCTAssertEqual(restoredModel.codexSafeAreaHeight, 60)
+    XCTAssertEqual(restoredModel.customImageTopInset, 12)
+
+    restoredModel.setCodexSafeAreaHeight(1)
+    restoredModel.setCustomImageTopInset(1_000)
+    restoredModel.setImageRotationInterval(0)
+    XCTAssertEqual(restoredModel.codexSafeAreaHeight, 44)
+    XCTAssertEqual(restoredModel.customImageTopInset, 80)
+    XCTAssertEqual(restoredModel.imageRotationIntervalSeconds, 1)
+  }
+
+  @MainActor
   func testCustomImageModePausesCodexAndSwitchingBackRefreshesImmediately() async throws {
     let suiteName = "AppModelTests.\(UUID().uuidString)"
     let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))

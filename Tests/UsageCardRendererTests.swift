@@ -35,6 +35,25 @@ final class UsageCardRendererTests: XCTestCase {
   }
 
   @MainActor
+  func testCustomImageCanFillEntireScreenWithoutTopInset() throws {
+    let source = NSImage(size: NSSize(width: 142, height: 428))
+    source.lockFocus()
+    NSColor.systemRed.setFill()
+    NSRect(x: 0, y: 0, width: 142, height: 428).fill()
+    source.unlockFocus()
+
+    let rendered = try CustomImageRenderer.render(
+      image: source,
+      topInset: 0,
+      jpegQuality: 0.9
+    )
+
+    let bitmap = try XCTUnwrap(NSBitmapImageRep(data: rendered.data))
+    let topColor = try XCTUnwrap(bitmap.colorAt(x: 71, y: 10)?.usingColorSpace(.deviceRGB))
+    XCTAssertGreaterThan(topColor.redComponent, 0.7)
+  }
+
+  @MainActor
   func testCustomImageIsCroppedToDeviceSizeWithDarkSafeArea() throws {
     let source = NSImage(size: NSSize(width: 320, height: 180))
     source.lockFocus()
@@ -44,7 +63,7 @@ final class UsageCardRendererTests: XCTestCase {
 
     let rendered = try CustomImageRenderer.render(
       image: source,
-      safeAreaHeight: UsageCardLayout.defaultSafeArea,
+      topInset: UsageCardLayout.defaultSafeArea,
       jpegQuality: 0.9
     )
 
@@ -69,7 +88,7 @@ final class UsageCardRendererTests: XCTestCase {
 
     let rendered = try CustomImageRenderer.render(
       image: source,
-      safeAreaHeight: UsageCardLayout.defaultSafeArea,
+      topInset: UsageCardLayout.defaultSafeArea,
       jpegQuality: 0.9,
       contentMode: .fit
     )

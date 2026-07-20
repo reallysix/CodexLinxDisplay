@@ -63,22 +63,15 @@ struct SettingsView: View {
                   }
                   .pickerStyle(.segmented)
 
-                  Stepper(
+                  integerStepper(
+                    title: "切换间隔",
                     value: Binding(
                       get: { model.imageRotationIntervalSeconds },
                       set: { model.setImageRotationInterval($0) }
                     ),
-                    in: 1...3_600,
-                    step: 1
-                  ) {
-                    HStack {
-                      Text("切换间隔")
-                      Spacer()
-                      Text("\(model.imageRotationIntervalSeconds) 秒")
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
-                    }
-                  }
+                    range: 1...3_600,
+                    unit: "秒"
+                  )
                 }
 
                 Picker(
@@ -173,13 +166,31 @@ struct SettingsView: View {
 
           settingsSection("屏幕布局") {
             VStack(spacing: 8) {
-              Stepper(value: $model.safeAreaHeight, in: 44...80, step: 1) {
-                HStack {
-                  Text("顶部状态栏安全区")
-                  Spacer()
-                  Text("\(Int(model.safeAreaHeight)) px")
-                    .foregroundStyle(.secondary)
-                }
+              if model.displayMode == .codex {
+                integerStepper(
+                  title: "Codex 顶部安全区",
+                  value: Binding(
+                    get: { Int(model.codexSafeAreaHeight) },
+                    set: { model.setCodexSafeAreaHeight($0) }
+                  ),
+                  range: 44...80,
+                  unit: "px"
+                )
+              } else {
+                integerStepper(
+                  title: "图片顶部留白",
+                  value: Binding(
+                    get: { Int(model.customImageTopInset) },
+                    set: { model.setCustomImageTopInset($0) }
+                  ),
+                  range: 0...80,
+                  unit: "px"
+                )
+
+                Text("自定义图片通常设为 0px；只有需要避让键盘状态栏时再增加。")
+                  .font(.caption)
+                  .foregroundStyle(.secondary)
+                  .frame(maxWidth: .infinity, alignment: .leading)
               }
 
               HStack {
@@ -254,14 +265,16 @@ struct SettingsView: View {
         .frame(width: UsageCardLayout.width, height: UsageCardLayout.height)
         .clipped()
         .overlay(alignment: .top) {
-          Text("状态栏安全区")
-            .font(.system(size: 8, weight: .medium))
-            .foregroundStyle(.white.opacity(0.35))
-            .padding(.top, 8)
+          if previewTopInset > 0 {
+            Text(model.displayMode == .codex ? "状态栏安全区" : "图片顶部留白")
+              .font(.system(size: 8, weight: .medium))
+              .foregroundStyle(.white.opacity(0.35))
+              .padding(.top, 8)
+          }
         }
         .shadow(color: .black.opacity(0.25), radius: 12, y: 6)
 
-        Text("\(model.displayMode.title) · 顶部 \(Int(model.safeAreaHeight))px 留空")
+        Text(previewLayoutDescription)
           .font(.caption)
           .foregroundStyle(.secondary)
       }
@@ -289,6 +302,42 @@ struct SettingsView: View {
   private func intervalTitle(_ seconds: Int) -> String {
     if seconds < 60 { return "\(seconds) 秒" }
     return "\(seconds / 60) 分钟"
+  }
+
+  private func integerStepper(
+    title: String,
+    value: Binding<Int>,
+    range: ClosedRange<Int>,
+    unit: String
+  ) -> some View {
+    Stepper(value: value, in: range, step: 1) {
+      HStack {
+        Text(title)
+        Spacer()
+        TextField("", value: value, format: .number)
+          .textFieldStyle(.roundedBorder)
+          .multilineTextAlignment(.trailing)
+          .monospacedDigit()
+          .frame(width: 58)
+          .accessibilityLabel(title)
+        Text(unit)
+          .foregroundStyle(.secondary)
+      }
+    }
+  }
+
+  private var previewTopInset: Double {
+    model.displayMode == .codex ? model.codexSafeAreaHeight : model.customImageTopInset
+  }
+
+  private var previewLayoutDescription: String {
+    if model.displayMode == .codex {
+      return "Codex 用量 · 顶部 \(Int(model.codexSafeAreaHeight))px 安全区"
+    }
+    if model.customImageTopInset == 0 {
+      return "自定义图片 · 全屏显示"
+    }
+    return "自定义图片 · 顶部 \(Int(model.customImageTopInset))px 留白"
   }
 
   private func chooseCustomImages() {

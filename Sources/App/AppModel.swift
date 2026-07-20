@@ -59,9 +59,16 @@ final class AppModel: ObservableObject {
     didSet { defaults.set(endpoint, forKey: Keys.endpoint) }
   }
 
-  @Published var safeAreaHeight: Double {
+  @Published private(set) var codexSafeAreaHeight: Double {
     didSet {
-      defaults.set(safeAreaHeight, forKey: Keys.safeAreaHeight)
+      defaults.set(codexSafeAreaHeight, forKey: Keys.codexSafeAreaHeight)
+      updatePreview()
+    }
+  }
+
+  @Published private(set) var customImageTopInset: Double {
+    didSet {
+      defaults.set(customImageTopInset, forKey: Keys.customImageTopInset)
       updatePreview()
     }
   }
@@ -112,8 +119,10 @@ final class AppModel: ObservableObject {
       rawValue: defaults.string(forKey: Keys.customImageContentMode) ?? ""
     ) ?? .fill
 
-    let storedSafeArea = defaults.object(forKey: Keys.safeAreaHeight) as? Double
-    safeAreaHeight = storedSafeArea ?? Double(UsageCardLayout.defaultSafeArea)
+    let storedCodexSafeArea = defaults.object(forKey: Keys.codexSafeAreaHeight) as? Double
+      ?? defaults.object(forKey: Keys.legacySafeAreaHeight) as? Double
+    codexSafeAreaHeight = storedCodexSafeArea ?? Double(UsageCardLayout.defaultSafeArea)
+    customImageTopInset = defaults.object(forKey: Keys.customImageTopInset) as? Double ?? 0
 
     let storedQuality = defaults.object(forKey: Keys.jpegQuality) as? Double
     jpegQuality = storedQuality ?? 0.9
@@ -169,6 +178,21 @@ final class AppModel: ObservableObject {
     if displayMode == .codex {
       restartScheduler(uploadImmediately: false)
     }
+  }
+
+  func setCodexSafeAreaHeight(_ pixels: Int) {
+    let clampedPixels = max(
+      Int(UsageCardLayout.minimumSafeArea),
+      min(Int(UsageCardLayout.maximumSafeArea), pixels)
+    )
+    guard codexSafeAreaHeight != Double(clampedPixels) else { return }
+    codexSafeAreaHeight = Double(clampedPixels)
+  }
+
+  func setCustomImageTopInset(_ pixels: Int) {
+    let clampedPixels = max(0, min(Int(UsageCardLayout.maximumSafeArea), pixels))
+    guard customImageTopInset != Double(clampedPixels) else { return }
+    customImageTopInset = Double(clampedPixels)
   }
 
   func setImageRotationMode(_ mode: ImageRotationMode) {
@@ -317,7 +341,7 @@ final class AppModel: ObservableObject {
 
       let rendered = try UsageCardRenderer.render(
         snapshot: latestSnapshot,
-        safeAreaHeight: safeAreaHeight,
+        safeAreaHeight: codexSafeAreaHeight,
         jpegQuality: jpegQuality
       )
       previewImage = rendered.image
@@ -364,7 +388,7 @@ final class AppModel: ObservableObject {
     do {
       let rendered = try CustomImageRenderer.render(
         image: currentCustomSourceImage,
-        safeAreaHeight: safeAreaHeight,
+        topInset: customImageTopInset,
         jpegQuality: jpegQuality,
         contentMode: customImageContentMode
       )
@@ -489,7 +513,7 @@ final class AppModel: ObservableObject {
       case .codex:
         previewImage = try UsageCardRenderer.render(
           snapshot: snapshot ?? .sample,
-          safeAreaHeight: safeAreaHeight,
+          safeAreaHeight: codexSafeAreaHeight,
           jpegQuality: jpegQuality
         ).image
       case .customImage:
@@ -499,7 +523,7 @@ final class AppModel: ObservableObject {
         }
         previewImage = try CustomImageRenderer.render(
           image: currentCustomSourceImage,
-          safeAreaHeight: safeAreaHeight,
+          topInset: customImageTopInset,
           jpegQuality: jpegQuality,
           contentMode: customImageContentMode
         ).image
@@ -619,7 +643,9 @@ final class AppModel: ObservableObject {
   private enum Keys {
     static let endpoint = "imageAPIEndpoint"
     static let refreshInterval = "refreshIntervalSeconds"
-    static let safeAreaHeight = "safeAreaHeight"
+    static let codexSafeAreaHeight = "codexSafeAreaHeight"
+    static let customImageTopInset = "customImageTopInset"
+    static let legacySafeAreaHeight = "safeAreaHeight"
     static let jpegQuality = "jpegQuality"
     static let displayMode = "displayMode"
     static let customImagePath = "customImagePath"
