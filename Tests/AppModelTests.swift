@@ -33,16 +33,15 @@ final class AppModelTests: XCTestCase {
 
     let imageURL = try makeTemporaryImage()
     defer { try? FileManager.default.removeItem(at: imageURL) }
-    model.selectCustomImage(at: imageURL)
+    model.selectCustomImages(at: [imageURL])
 
     let customUploadCompleted = await waitUntil {
       await imageClient.uploadCount == 2
     }
     XCTAssertTrue(customUploadCompleted)
     XCTAssertEqual(model.displayMode, .customImage)
-    XCTAssertTrue(
-      FileManager.default.fileExists(
-        atPath: imageDirectory.appendingPathComponent("custom-image.png").path))
+    XCTAssertEqual(model.customImages.count, 1)
+    XCTAssertTrue(FileManager.default.fileExists(atPath: model.customImages[0].storageURL.path))
 
     model.refreshOnly()
     try await Task.sleep(nanoseconds: 100_000_000)
@@ -60,10 +59,80 @@ final class AppModelTests: XCTestCase {
   }
 
   @MainActor
-  private func makeTemporaryImage() throws -> URL {
+  func testMultipleImagesPersistAndRotationNeverRepeatsCurrentImage() throws {
+    let suiteName = "AppModelTests.\(UUID().uuidString)"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defer { defaults.removePersistentDomain(forName: suiteName) }
+
+    let imageDirectory = FileManager.default.temporaryDirectory
+      .appendingPathComponent("codex-linx-storage-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: imageDirectory) }
+    let urls = try [
+      makeTemporaryImage(color: .systemRed),
+      makeTemporaryImage(color: .systemGreen),
+      makeTemporaryImage(color: .systemBlue),
+    ]
+    defer { urls.forEach { try? FileManager.default.removeItem(at: $0) } }
+
+    let model = AppModel(defaults: defaults, customImageDirectory: imageDirectory)
+    model.selectCustomImages(at: urls)
+
+    XCTAssertEqual(model.customImages.count, 3)
+    XCTAssertEqual(model.currentCustomImageIndex, 0)
+    model.advanceCustomImage()
+    XCTAssertEqual(model.currentCustomImageIndex, 1)
+
+    model.setImageRotationMode(.random)
+    for _ in 0..<50 {
+      let previousIndex = model.currentCustomImageIndex
+      model.advanceCustomImage()
+      XCTAssertNotEqual(model.currentCustomImageIndex, previousIndex)
+    }
+
+    let restoredModel = AppModel(defaults: defaults, customImageDirectory: imageDirectory)
+    XCTAssertEqual(restoredModel.customImages.map(\.name), model.customImages.map(\.name))
+    XCTAssertEqual(restoredModel.currentCustomImageIndex, model.currentCustomImageIndex)
+  }
+
+  @MainActor
+  func testCustomImageSchedulerAdvancesAndUploadsNextImage() async throws {
+    let suiteName = "AppModelTests.\(UUID().uuidString)"
+    let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+    defaults.removePersistentDomain(forName: suiteName)
+    defer { defaults.removePersistentDomain(forName: suiteName) }
+
+    let imageClient = FakeImageClient()
+    let imageDirectory = FileManager.default.temporaryDirectory
+      .appendingPathComponent("codex-linx-storage-\(UUID().uuidString)", isDirectory: true)
+    defer { try? FileManager.default.removeItem(at: imageDirectory) }
+    let urls = try [
+      makeTemporaryImage(color: .systemPurple),
+      makeTemporaryImage(color: .systemOrange),
+    ]
+    defer { urls.forEach { try? FileManager.default.removeItem(at: $0) } }
+
+    let model = AppModel(
+      defaults: defaults,
+      imageAPIClient: imageClient,
+      customImageDirectory: imageDirectory
+    )
+    model.selectCustomImages(at: urls)
+    model.setImageRotationInterval(1)
+    model.start()
+
+    let secondUploadCompleted = await waitUntil(timeoutIterations: 150) {
+      await imageClient.uploadCount >= 2
+    }
+    XCTAssertTrue(secondUploadCompleted)
+    XCTAssertEqual(model.currentCustomImageIndex, 1)
+  }
+
+  @MainActor
+  private func makeTemporaryImage(color: NSColor = .systemBlue) throws -> URL {
     let image = NSImage(size: NSSize(width: 320, height: 180))
     image.lockFocus()
-    NSColor.systemBlue.setFill()
+    color.setFill()
     NSRect(x: 0, y: 0, width: 320, height: 180).fill()
     image.unlockFocus()
 
@@ -77,9 +146,10 @@ final class AppModelTests: XCTestCase {
   }
 
   private func waitUntil(
+    timeoutIterations: Int = 100,
     _ condition: @escaping () async -> Bool
   ) async -> Bool {
-    for _ in 0..<100 {
+    for _ in 0..<timeoutIterations {
       if await condition() { return true }
       try? await Task.sleep(nanoseconds: 20_000_000)
     }

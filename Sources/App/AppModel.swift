@@ -17,12 +17,37 @@ enum DisplayMode: String, CaseIterable, Identifiable {
   }
 }
 
+enum ImageRotationMode: String, CaseIterable, Identifiable {
+  case sequential
+  case random
+
+  var id: String { rawValue }
+
+  var title: String {
+    switch self {
+    case .sequential: return "顺序切换"
+    case .random: return "随机切换"
+    }
+  }
+}
+
+struct CustomImageItem: Identifiable, Equatable {
+  let storageURL: URL
+  let name: String
+
+  var id: String { storageURL.path }
+}
+
 @MainActor
 final class AppModel: ObservableObject {
   @Published private(set) var snapshot: UsageSnapshot?
   @Published private(set) var previewImage: NSImage?
   @Published private(set) var displayMode: DisplayMode
-  @Published private(set) var customImageName: String?
+  @Published private(set) var customImages: [CustomImageItem] = []
+  @Published private(set) var currentCustomImageIndex = 0
+  @Published private(set) var imageRotationMode: ImageRotationMode
+  @Published private(set) var imageRotationIntervalSeconds: Int
+  @Published private(set) var customImageContentMode: CustomImageContentMode
   @Published private(set) var isSyncing = false
   @Published private(set) var statusText = "等待首次同步"
   @Published private(set) var lastError: String?
@@ -55,10 +80,11 @@ final class AppModel: ObservableObject {
   private let imageAPIClient: any ImageUploading
   private let customImageDirectory: URL
   private var schedulerTask: Task<Void, Never>?
+  private var imageRotationTask: Task<Void, Never>?
   private var pendingModeActionTask: Task<Void, Never>?
   private var wakeObserver: NSObjectProtocol?
   private var lastUploadedHash: String?
-  private var customSourceImage: NSImage?
+  private var customSourceImages: [NSImage] = []
   private var hasStarted = false
 
   init(
@@ -77,6 +103,14 @@ final class AppModel: ObservableObject {
     displayMode = DisplayMode(
       rawValue: defaults.string(forKey: Keys.displayMode) ?? ""
     ) ?? .codex
+    imageRotationMode = ImageRotationMode(
+      rawValue: defaults.string(forKey: Keys.imageRotationMode) ?? ""
+    ) ?? .sequential
+    imageRotationIntervalSeconds = max(
+      1, defaults.object(forKey: Keys.imageRotationInterval) as? Int ?? 10)
+    customImageContentMode = CustomImageContentMode(
+      rawValue: defaults.string(forKey: Keys.customImageContentMode) ?? ""
+    ) ?? .fill
 
     let storedSafeArea = defaults.object(forKey: Keys.safeAreaHeight) as? Double
     safeAreaHeight = storedSafeArea ?? Double(UsageCardLayout.defaultSafeArea)
@@ -84,24 +118,18 @@ final class AppModel: ObservableObject {
     let storedQuality = defaults.object(forKey: Keys.jpegQuality) as? Double
     jpegQuality = storedQuality ?? 0.9
 
-    if let path = defaults.string(forKey: Keys.customImagePath),
-      let image = NSImage(contentsOfFile: path)
-    {
-      customSourceImage = image
-      customImageName =
-        defaults.string(forKey: Keys.customImageName)
-        ?? URL(fileURLWithPath: path).lastPathComponent
-    }
+    loadStoredCustomImages()
 
     launchAtLogin = SMAppService.mainApp.status == .enabled
     updatePreview()
     if displayMode == .customImage {
-      statusText = customSourceImage == nil ? "请选择一张图片" : "图片模式待推送"
+      statusText = customSourceImages.isEmpty ? "请选择图片" : "图片轮播待推送"
     }
   }
 
   deinit {
     schedulerTask?.cancel()
+    imageRotationTask?.cancel()
     pendingModeActionTask?.cancel()
     if let wakeObserver {
       NotificationCenter.default.removeObserver(wakeObserver)
@@ -122,15 +150,15 @@ final class AppModel: ObservableObject {
         if self.displayMode == .codex {
           await self.synchronize(upload: true, forceUpload: true)
         } else {
-          await self.uploadCustomImage(forceUpload: true)
+          self.restartImageRotation(uploadImmediately: true)
         }
       }
     }
 
     if displayMode == .codex {
       restartScheduler(uploadImmediately: true)
-    } else if customSourceImage != nil {
-      scheduleCurrentModeAction()
+    } else if !customSourceImages.isEmpty {
+      restartImageRotation(uploadImmediately: true)
     }
   }
 
@@ -143,6 +171,36 @@ final class AppModel: ObservableObject {
     }
   }
 
+  func setImageRotationMode(_ mode: ImageRotationMode) {
+    guard imageRotationMode != mode else { return }
+    imageRotationMode = mode
+    defaults.set(mode.rawValue, forKey: Keys.imageRotationMode)
+    if displayMode == .customImage, hasStarted {
+      restartImageRotation(uploadImmediately: false)
+    }
+  }
+
+  func setImageRotationInterval(_ seconds: Int) {
+    let clampedSeconds = max(1, min(3_600, seconds))
+    guard imageRotationIntervalSeconds != clampedSeconds else { return }
+    imageRotationIntervalSeconds = clampedSeconds
+    defaults.set(clampedSeconds, forKey: Keys.imageRotationInterval)
+    if displayMode == .customImage, hasStarted {
+      restartImageRotation(uploadImmediately: false)
+    }
+  }
+
+  func setCustomImageContentMode(_ mode: CustomImageContentMode) {
+    guard customImageContentMode != mode else { return }
+    customImageContentMode = mode
+    defaults.set(mode.rawValue, forKey: Keys.customImageContentMode)
+    lastUploadedHash = nil
+    updatePreview()
+    if displayMode == .customImage, hasStarted {
+      scheduleCurrentModeAction()
+    }
+  }
+
   func setDisplayMode(_ mode: DisplayMode) {
     guard displayMode != mode else { return }
 
@@ -152,11 +210,13 @@ final class AppModel: ObservableObject {
     lastError = nil
     schedulerTask?.cancel()
     schedulerTask = nil
+    imageRotationTask?.cancel()
+    imageRotationTask = nil
     pendingModeActionTask?.cancel()
     updatePreview()
 
     if mode == .customImage {
-      statusText = customSourceImage == nil ? "请选择一张图片" : "Codex 刷新已暂停"
+      statusText = customSourceImages.isEmpty ? "请选择图片" : "Codex 刷新已暂停"
     } else {
       statusText = "准备读取 Codex"
     }
@@ -166,19 +226,26 @@ final class AppModel: ObservableObject {
     }
   }
 
-  func selectCustomImage(at url: URL) {
-    guard let image = NSImage(contentsOf: url) else {
-      lastError = "无法读取所选图片，请选择常见的图片格式。"
+  func selectCustomImages(at urls: [URL]) {
+    guard !urls.isEmpty else { return }
+
+    let sourceImages = urls.compactMap { NSImage(contentsOf: $0) }
+    guard sourceImages.count == urls.count else {
+      lastError = "部分图片无法读取，请选择常见的图片格式。"
       statusText = "图片读取失败"
       return
     }
 
     do {
-      let storedURL = try persistCustomImage(image)
-      customSourceImage = image
-      customImageName = url.lastPathComponent
-      defaults.set(storedURL.path, forKey: Keys.customImagePath)
-      defaults.set(url.lastPathComponent, forKey: Keys.customImageName)
+      let previousItems = customImages
+      let storedURLs = try persistCustomImages(sourceImages)
+      customImages = zip(storedURLs, urls).map {
+        CustomImageItem(storageURL: $0.0, name: $0.1.lastPathComponent)
+      }
+      customSourceImages = storedURLs.compactMap { NSImage(contentsOf: $0) }
+      currentCustomImageIndex = 0
+      persistCustomImageManifest()
+      removeStoredImages(previousItems)
       lastError = nil
     } catch {
       lastError = "无法保存所选图片：\(error.localizedDescription)"
@@ -191,7 +258,7 @@ final class AppModel: ObservableObject {
     } else {
       lastUploadedHash = nil
       updatePreview()
-      statusText = "图片已准备"
+      statusText = customImages.count > 1 ? "已准备 \(customImages.count) 张图片" : "图片已准备"
       if hasStarted {
         scheduleCurrentModeAction()
       }
@@ -241,7 +308,7 @@ final class AppModel: ObservableObject {
     do {
       let latestSnapshot = try await codexClient.fetch()
       guard displayMode == .codex else {
-        statusText = customSourceImage == nil ? "请选择一张图片" : "Codex 刷新已暂停"
+        statusText = customSourceImages.isEmpty ? "请选择图片" : "Codex 刷新已暂停"
         return
       }
 
@@ -276,14 +343,14 @@ final class AppModel: ObservableObject {
         statusText = "同步失败"
       } else {
         lastError = nil
-        statusText = customSourceImage == nil ? "请选择一张图片" : "Codex 刷新已暂停"
+        statusText = customSourceImages.isEmpty ? "请选择图片" : "Codex 刷新已暂停"
       }
     }
   }
 
   func uploadCustomImage(forceUpload: Bool) async {
     guard displayMode == .customImage, !isSyncing else { return }
-    guard let customSourceImage else {
+    guard let currentCustomSourceImage else {
       lastError = "请先选择要显示的图片。"
       statusText = "尚未选择图片"
       return
@@ -296,9 +363,10 @@ final class AppModel: ObservableObject {
 
     do {
       let rendered = try CustomImageRenderer.render(
-        image: customSourceImage,
+        image: currentCustomSourceImage,
         safeAreaHeight: safeAreaHeight,
-        jpegQuality: jpegQuality
+        jpegQuality: jpegQuality,
+        contentMode: customImageContentMode
       )
       previewImage = rendered.image
 
@@ -313,7 +381,7 @@ final class AppModel: ObservableObject {
       guard displayMode == .customImage else { return }
       lastUploadedHash = hash
       lastUploadDate = Date()
-      statusText = "图片推送成功 · HTTP \(result.statusCode)"
+      statusText = "图片 \(customImagePositionText) 推送成功 · HTTP \(result.statusCode)"
     } catch {
       if displayMode == .customImage {
         lastError = error.localizedDescription
@@ -325,6 +393,20 @@ final class AppModel: ObservableObject {
   var lastUploadText: String {
     guard let lastUploadDate else { return "尚未推送" }
     return Self.dateTimeFormatter.string(from: lastUploadDate)
+  }
+
+  var customImageName: String? {
+    currentCustomImage?.name
+  }
+
+  var customImagePositionText: String {
+    guard !customImages.isEmpty else { return "0/0" }
+    return "\(currentCustomImageIndex + 1)/\(customImages.count)"
+  }
+
+  var currentCustomImage: CustomImageItem? {
+    guard customImages.indices.contains(currentCustomImageIndex) else { return nil }
+    return customImages[currentCustomImageIndex]
   }
 
   var lastRefreshText: String {
@@ -354,6 +436,53 @@ final class AppModel: ObservableObject {
     }
   }
 
+  private func restartImageRotation(uploadImmediately: Bool) {
+    imageRotationTask?.cancel()
+    guard displayMode == .customImage, !customSourceImages.isEmpty else {
+      imageRotationTask = nil
+      return
+    }
+
+    imageRotationTask = Task { [weak self] in
+      guard let self else { return }
+      if uploadImmediately {
+        await self.uploadCustomImage(forceUpload: true)
+      }
+
+      guard self.customSourceImages.count > 1 else { return }
+      while !Task.isCancelled {
+        let interval = self.imageRotationIntervalSeconds
+        do {
+          try await Task.sleep(nanoseconds: UInt64(interval) * 1_000_000_000)
+        } catch {
+          return
+        }
+        guard !Task.isCancelled, self.displayMode == .customImage else { return }
+        self.advanceCustomImage()
+        await self.uploadCustomImage(forceUpload: true)
+      }
+    }
+  }
+
+  func advanceCustomImage() {
+    guard customImages.count > 1 else { return }
+
+    switch imageRotationMode {
+    case .sequential:
+      currentCustomImageIndex = (currentCustomImageIndex + 1) % customImages.count
+    case .random:
+      var nextIndex = Int.random(in: 0..<(customImages.count - 1))
+      if nextIndex >= currentCustomImageIndex {
+        nextIndex += 1
+      }
+      currentCustomImageIndex = nextIndex
+    }
+
+    defaults.set(currentCustomImageIndex, forKey: Keys.currentCustomImageIndex)
+    lastUploadedHash = nil
+    updatePreview()
+  }
+
   private func updatePreview() {
     do {
       switch displayMode {
@@ -364,14 +493,15 @@ final class AppModel: ObservableObject {
           jpegQuality: jpegQuality
         ).image
       case .customImage:
-        guard let customSourceImage else {
+        guard let currentCustomSourceImage else {
           previewImage = nil
           return
         }
         previewImage = try CustomImageRenderer.render(
-          image: customSourceImage,
+          image: currentCustomSourceImage,
           safeAreaHeight: safeAreaHeight,
-          jpegQuality: jpegQuality
+          jpegQuality: jpegQuality,
+          contentMode: customImageContentMode
         ).image
       }
     } catch {
@@ -397,26 +527,93 @@ final class AppModel: ObservableObject {
       if expectedMode == .codex {
         self.restartScheduler(uploadImmediately: true)
       } else {
-        await self.uploadCustomImage(forceUpload: true)
+        self.restartImageRotation(uploadImmediately: true)
       }
     }
   }
 
-  private func persistCustomImage(_ image: NSImage) throws -> URL {
-    guard let tiffData = image.tiffRepresentation,
-      let bitmap = NSBitmapImageRep(data: tiffData),
-      let pngData = bitmap.representation(using: .png, properties: [:])
-    else {
-      throw UsageCardRendererError.encodingFailed
-    }
-
+  private func persistCustomImages(_ images: [NSImage]) throws -> [URL] {
     try FileManager.default.createDirectory(
       at: customImageDirectory,
       withIntermediateDirectories: true
     )
-    let storedURL = customImageDirectory.appendingPathComponent("custom-image.png")
-    try pngData.write(to: storedURL, options: .atomic)
-    return storedURL
+
+    var storedURLs: [URL] = []
+    do {
+      for (index, image) in images.enumerated() {
+        guard let tiffData = image.tiffRepresentation,
+          let bitmap = NSBitmapImageRep(data: tiffData),
+          let pngData = bitmap.representation(using: .png, properties: [:])
+        else {
+          throw UsageCardRendererError.encodingFailed
+        }
+
+        let filename = String(
+          format: "custom-image-%03d-%@.png", index + 1, UUID().uuidString)
+        let storedURL = customImageDirectory.appendingPathComponent(filename)
+        try pngData.write(to: storedURL, options: .atomic)
+        storedURLs.append(storedURL)
+      }
+      return storedURLs
+    } catch {
+      for url in storedURLs {
+        try? FileManager.default.removeItem(at: url)
+      }
+      throw error
+    }
+  }
+
+  private func persistCustomImageManifest() {
+    defaults.set(customImages.map { $0.storageURL.path }, forKey: Keys.customImagePaths)
+    defaults.set(customImages.map(\.name), forKey: Keys.customImageNames)
+    defaults.set(currentCustomImageIndex, forKey: Keys.currentCustomImageIndex)
+
+    defaults.set(customImages.first?.storageURL.path, forKey: Keys.customImagePath)
+    defaults.set(customImages.first?.name, forKey: Keys.customImageName)
+  }
+
+  private func loadStoredCustomImages() {
+    var paths = defaults.stringArray(forKey: Keys.customImagePaths) ?? []
+    var names = defaults.stringArray(forKey: Keys.customImageNames) ?? []
+
+    if paths.isEmpty, let legacyPath = defaults.string(forKey: Keys.customImagePath) {
+      paths = [legacyPath]
+      names = [
+        defaults.string(forKey: Keys.customImageName)
+          ?? URL(fileURLWithPath: legacyPath).lastPathComponent
+      ]
+    }
+
+    for (index, path) in paths.enumerated() {
+      guard let image = NSImage(contentsOfFile: path) else { continue }
+      let url = URL(fileURLWithPath: path)
+      customImages.append(
+        CustomImageItem(
+          storageURL: url,
+          name: names.indices.contains(index) ? names[index] : url.lastPathComponent
+        ))
+      customSourceImages.append(image)
+    }
+
+    let storedIndex = defaults.object(forKey: Keys.currentCustomImageIndex) as? Int ?? 0
+    currentCustomImageIndex = customImages.indices.contains(storedIndex) ? storedIndex : 0
+  }
+
+  private func removeStoredImages(_ items: [CustomImageItem]) {
+    let directory = customImageDirectory.standardizedFileURL
+    let retainedPaths = Set(customImages.map { $0.storageURL.standardizedFileURL.path })
+    for item in items {
+      let url = item.storageURL.standardizedFileURL
+      guard url.deletingLastPathComponent() == directory,
+        !retainedPaths.contains(url.path)
+      else { continue }
+      try? FileManager.default.removeItem(at: url)
+    }
+  }
+
+  private var currentCustomSourceImage: NSImage? {
+    guard customSourceImages.indices.contains(currentCustomImageIndex) else { return nil }
+    return customSourceImages[currentCustomImageIndex]
   }
 
   private enum Keys {
@@ -427,6 +624,12 @@ final class AppModel: ObservableObject {
     static let displayMode = "displayMode"
     static let customImagePath = "customImagePath"
     static let customImageName = "customImageName"
+    static let customImagePaths = "customImagePaths"
+    static let customImageNames = "customImageNames"
+    static let currentCustomImageIndex = "currentCustomImageIndex"
+    static let imageRotationMode = "imageRotationMode"
+    static let imageRotationInterval = "imageRotationIntervalSeconds"
+    static let customImageContentMode = "customImageContentMode"
   }
 
   private static let defaultCustomImageDirectory = FileManager.default

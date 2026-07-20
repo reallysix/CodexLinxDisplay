@@ -10,155 +10,224 @@ struct SettingsView: View {
 
   var body: some View {
     HStack(alignment: .top, spacing: 22) {
-      VStack(alignment: .leading, spacing: 12) {
-        settingsSection("显示内容") {
-          VStack(spacing: 8) {
-            Picker(
-              "显示模式",
-              selection: Binding(
-                get: { model.displayMode },
-                set: { model.setDisplayMode($0) }
-              )
-            ) {
-              ForEach(DisplayMode.allCases) { mode in
-                Text(mode.title).tag(mode)
+      ScrollView {
+        VStack(alignment: .leading, spacing: 12) {
+          settingsSection("显示内容") {
+            VStack(spacing: 8) {
+              Picker(
+                "显示模式",
+                selection: Binding(
+                  get: { model.displayMode },
+                  set: { model.setDisplayMode($0) }
+                )
+              ) {
+                ForEach(DisplayMode.allCases) { mode in
+                  Text(mode.title).tag(mode)
+                }
               }
-            }
-            .pickerStyle(.segmented)
+              .pickerStyle(.segmented)
 
-            if model.displayMode == .customImage {
-              HStack {
-                Button("选择图片…") {
-                  chooseCustomImage()
+              if model.displayMode == .customImage {
+                HStack {
+                  Button(model.customImages.isEmpty ? "选择图片…" : "重新选择…") {
+                    chooseCustomImages()
+                  }
+
+                  Text(
+                    model.customImages.isEmpty
+                      ? "尚未选择图片"
+                      : "已选择 \(model.customImages.count) 张 · 当前 \(model.customImagePositionText)"
+                  )
+                  .lineLimit(1)
+                  .foregroundStyle(.secondary)
+
+                  Spacer()
                 }
 
-                Text(model.customImageName ?? "尚未选择图片")
-                  .lineLimit(1)
-                  .truncationMode(.middle)
+                if let name = model.customImageName {
+                  LabeledContent("当前图片", value: name)
+                    .lineLimit(1)
+                }
+
+                if model.customImages.count > 1 {
+                  Picker(
+                    "切换方式",
+                    selection: Binding(
+                      get: { model.imageRotationMode },
+                      set: { model.setImageRotationMode($0) }
+                    )
+                  ) {
+                    ForEach(ImageRotationMode.allCases) { mode in
+                      Text(mode.title).tag(mode)
+                    }
+                  }
+                  .pickerStyle(.segmented)
+
+                  Stepper(
+                    value: Binding(
+                      get: { model.imageRotationIntervalSeconds },
+                      set: { model.setImageRotationInterval($0) }
+                    ),
+                    in: 1...3_600,
+                    step: 1
+                  ) {
+                    HStack {
+                      Text("切换间隔")
+                      Spacer()
+                      Text("\(model.imageRotationIntervalSeconds) 秒")
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                    }
+                  }
+                }
+
+                Picker(
+                  "图片适配",
+                  selection: Binding(
+                    get: { model.customImageContentMode },
+                    set: { model.setCustomImageContentMode($0) }
+                  )
+                ) {
+                  ForEach(CustomImageContentMode.allCases) { mode in
+                    Text(mode.title).tag(mode)
+                  }
+                }
+                .pickerStyle(.segmented)
+
+                Text(
+                  model.customImageContentMode == .fill
+                    ? "自动放大并居中裁剪，画面铺满；适合照片。"
+                    : "完整保留画面，空余区域填黑；适合截图和带文字图片。"
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                Text("无需限制原图分辨率；输出固定为 142×428。过小图片放大后可能变模糊。")
+                  .font(.caption)
                   .foregroundStyle(.secondary)
-
-                Spacer()
-              }
-
-              Text("图片会自动裁切并保留顶部状态栏；Codex 用量刷新已暂停。")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-              Text("切换到 Codex 时会立即读取并推送一次，之后按刷新间隔自动更新。")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-          }
-        }
-
-        settingsSection("设备接口") {
-          VStack(spacing: 8) {
-            TextField("图像 API 地址", text: $model.endpoint)
-              .textFieldStyle(.roundedBorder)
-
-            HStack {
-              Text("请求格式")
-              Spacer()
-              Text("POST · image/jpeg")
-                .foregroundStyle(.secondary)
-            }
-
-            Button("立即推送当前内容") {
-              model.pushNow()
-            }
-            .disabled(model.isSyncing)
-            .frame(maxWidth: .infinity, alignment: .leading)
-          }
-        }
-
-        settingsSection("后台刷新") {
-          VStack(spacing: 8) {
-            Picker(
-              "刷新间隔",
-              selection: Binding(
-                get: { model.refreshIntervalSeconds },
-                set: { model.setRefreshInterval($0) }
-              )
-            ) {
-              ForEach(intervals, id: \.self) { seconds in
-                Text(intervalTitle(seconds)).tag(seconds)
+                  .frame(maxWidth: .infinity, alignment: .leading)
+              } else {
+                Text("切换到 Codex 时会立即读取并推送一次，之后按刷新间隔自动更新。")
+                  .font(.caption)
+                  .foregroundStyle(.secondary)
+                  .frame(maxWidth: .infinity, alignment: .leading)
               }
             }
-            .disabled(model.displayMode == .customImage)
-
-            if model.displayMode == .customImage {
-              Text("图片模式下不读取 Codex 用量。")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-
-            Toggle(
-              "登录时自动启动",
-              isOn: Binding(
-                get: { model.launchAtLogin },
-                set: { model.updateLaunchAtLogin($0) }
-              )
-            )
           }
-        }
 
-        settingsSection("屏幕布局") {
-          VStack(spacing: 8) {
-            Stepper(value: $model.safeAreaHeight, in: 44...80, step: 1) {
+          settingsSection("设备接口") {
+            VStack(spacing: 8) {
+              TextField("图像 API 地址", text: $model.endpoint)
+                .textFieldStyle(.roundedBorder)
+
               HStack {
-                Text("顶部状态栏安全区")
+                Text("请求格式")
                 Spacer()
-                Text("\(Int(model.safeAreaHeight)) px")
+                Text("POST · image/jpeg")
                   .foregroundStyle(.secondary)
               }
-            }
 
-            HStack {
-              Text("JPEG 质量")
-              Slider(value: $model.jpegQuality, in: 0.5...1, step: 0.05)
-              Text("\(Int(model.jpegQuality * 100))%")
-                .monospacedDigit()
-                .foregroundStyle(.secondary)
-                .frame(width: 38, alignment: .trailing)
+              Button("立即推送当前内容") {
+                model.pushNow()
+              }
+              .disabled(
+                model.isSyncing
+                  || (model.displayMode == .customImage && model.customImages.isEmpty)
+              )
+              .frame(maxWidth: .infinity, alignment: .leading)
             }
           }
-        }
 
-        settingsSection("运行状态") {
-          VStack(spacing: 8) {
-            LabeledContent("状态", value: model.statusText)
-            Divider()
-            LabeledContent("上次 Codex 刷新", value: model.lastRefreshText)
-            Divider()
-            LabeledContent("上次推送", value: model.lastUploadText)
+          settingsSection("后台刷新") {
+            VStack(spacing: 8) {
+              Picker(
+                "刷新间隔",
+                selection: Binding(
+                  get: { model.refreshIntervalSeconds },
+                  set: { model.setRefreshInterval($0) }
+                )
+              ) {
+                ForEach(intervals, id: \.self) { seconds in
+                  Text(intervalTitle(seconds)).tag(seconds)
+                }
+              }
+              .disabled(model.displayMode == .customImage)
 
-            if let error = model.lastError {
+              if model.displayMode == .customImage {
+                Text("图片模式下不读取 Codex 用量；多图按上方轮播间隔推送。")
+                  .font(.caption)
+                  .foregroundStyle(.secondary)
+                  .frame(maxWidth: .infinity, alignment: .leading)
+              }
+
+              Toggle(
+                "登录时自动启动",
+                isOn: Binding(
+                  get: { model.launchAtLogin },
+                  set: { model.updateLaunchAtLogin($0) }
+                )
+              )
+            }
+          }
+
+          settingsSection("屏幕布局") {
+            VStack(spacing: 8) {
+              Stepper(value: $model.safeAreaHeight, in: 44...80, step: 1) {
+                HStack {
+                  Text("顶部状态栏安全区")
+                  Spacer()
+                  Text("\(Int(model.safeAreaHeight)) px")
+                    .foregroundStyle(.secondary)
+                }
+              }
+
+              HStack {
+                Text("JPEG 质量")
+                Slider(value: $model.jpegQuality, in: 0.5...1, step: 0.05)
+                Text("\(Int(model.jpegQuality * 100))%")
+                  .monospacedDigit()
+                  .foregroundStyle(.secondary)
+                  .frame(width: 38, alignment: .trailing)
+              }
+            }
+          }
+
+          settingsSection("运行状态") {
+            VStack(spacing: 8) {
+              LabeledContent("状态", value: model.statusText)
               Divider()
-              Text(error)
-                .font(.caption)
-                .foregroundStyle(.red)
-                .frame(maxWidth: .infinity, alignment: .leading)
+              LabeledContent("上次 Codex 刷新", value: model.lastRefreshText)
+              Divider()
+              LabeledContent("上次推送", value: model.lastUploadText)
+
+              if let error = model.lastError {
+                Divider()
+                Text(error)
+                  .font(.caption)
+                  .foregroundStyle(.red)
+                  .frame(maxWidth: .infinity, alignment: .leading)
+              }
+            }
+          }
+
+          settingsSection("软件更新") {
+            HStack {
+              Text("当前版本 \(updater.currentVersion)")
+                .foregroundStyle(.secondary)
+
+              Spacer()
+
+              Button("检查更新") {
+                updater.checkForUpdates()
+              }
             }
           }
         }
-
-        settingsSection("软件更新") {
-          HStack {
-            Text("当前版本 \(updater.currentVersion)")
-              .foregroundStyle(.secondary)
-
-            Spacer()
-
-            Button("检查更新") {
-              updater.checkForUpdates()
-            }
-          }
-        }
+        .frame(width: 398)
+        .padding(.trailing, 6)
       }
-      .frame(width: 408)
+      .frame(width: 408, height: 680)
 
       VStack(spacing: 10) {
         Text("键盘预览")
@@ -199,8 +268,7 @@ struct SettingsView: View {
       .frame(width: 160)
     }
     .padding(20)
-    .frame(width: 630, alignment: .top)
-    .fixedSize(horizontal: false, vertical: true)
+    .frame(width: 630, height: 720, alignment: .top)
   }
 
   private func settingsSection<Content: View>(
@@ -223,16 +291,16 @@ struct SettingsView: View {
     return "\(seconds / 60) 分钟"
   }
 
-  private func chooseCustomImage() {
+  private func chooseCustomImages() {
     let panel = NSOpenPanel()
-    panel.title = "选择要显示在键盘上的图片"
+    panel.title = "选择要轮播显示的图片"
     panel.prompt = "选择图片"
     panel.allowedContentTypes = [.image]
-    panel.allowsMultipleSelection = false
+    panel.allowsMultipleSelection = true
     panel.canChooseDirectories = false
 
-    if panel.runModal() == .OK, let url = panel.url {
-      model.selectCustomImage(at: url)
+    if panel.runModal() == .OK {
+      model.selectCustomImages(at: panel.urls)
     }
   }
 }

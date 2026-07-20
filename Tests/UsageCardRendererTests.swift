@@ -58,4 +58,26 @@ final class UsageCardRendererTests: XCTestCase {
     XCTAssertLessThan(safeAreaColor.redComponent, 0.1)
     XCTAssertGreaterThan(contentColor.redComponent, 0.7)
   }
+
+  @MainActor
+  func testCustomImageFitModePreservesWholeWideImageWithBlackBars() throws {
+    let source = NSImage(size: NSSize(width: 320, height: 180))
+    source.lockFocus()
+    NSColor.systemGreen.setFill()
+    NSRect(x: 0, y: 0, width: 320, height: 180).fill()
+    source.unlockFocus()
+
+    let rendered = try CustomImageRenderer.render(
+      image: source,
+      safeAreaHeight: UsageCardLayout.defaultSafeArea,
+      jpegQuality: 0.9,
+      contentMode: .fit
+    )
+
+    let bitmap = try XCTUnwrap(NSBitmapImageRep(data: rendered.data))
+    let barColor = try XCTUnwrap(bitmap.colorAt(x: 71, y: 100)?.usingColorSpace(.deviceRGB))
+    let imageColor = try XCTUnwrap(bitmap.colorAt(x: 71, y: 240)?.usingColorSpace(.deviceRGB))
+    XCTAssertLessThan(barColor.greenComponent, 0.1)
+    XCTAssertGreaterThan(imageColor.greenComponent, 0.7)
+  }
 }

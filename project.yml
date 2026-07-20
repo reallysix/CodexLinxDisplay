@@ -33,8 +33,8 @@ targets:
         CFBundleLocalizations:
           - zh_CN
         CFBundleName: Codex 屏显
-        CFBundleShortVersionString: "0.2.0"
-        CFBundleVersion: "3"
+        CFBundleShortVersionString: "0.3.0"
+        CFBundleVersion: "4"
         LSUIElement: true
         NSHighResolutionCapable: true
         NSLocalNetworkUsageDescription: 用于将 Codex 用量图片发送到局域网内的键盘屏幕。

@@ -43,9 +43,9 @@ struct MenuBarContentView: View {
           .disabled(model.isSyncing)
         } else {
           Button {
-            chooseCustomImage()
+            chooseCustomImages()
           } label: {
-            Label("选择图片", systemImage: "photo")
+            Label("选择图片", systemImage: "photo.on.rectangle.angled")
           }
           .disabled(model.isSyncing)
         }
@@ -56,7 +56,10 @@ struct MenuBarContentView: View {
           Label("立即推送", systemImage: "paperplane")
         }
         .buttonStyle(.borderedProminent)
-        .disabled(model.isSyncing)
+        .disabled(
+          model.isSyncing
+            || (model.displayMode == .customImage && model.customImages.isEmpty)
+        )
 
         Spacer()
       }
@@ -128,12 +131,16 @@ struct MenuBarContentView: View {
         }
       } else {
         VStack(alignment: .leading, spacing: 5) {
-          Label(model.customImageName ?? "尚未选择图片", systemImage: "photo")
+          Label(model.customImageName ?? "尚未选择图片", systemImage: "photo.on.rectangle.angled")
             .font(.headline)
             .lineLimit(1)
             .truncationMode(.middle)
 
-          Text("Codex 自动刷新已暂停")
+          Text(
+            model.customImages.count > 1
+              ? "\(model.customImagePositionText) · \(model.imageRotationMode.title) · 每 \(model.imageRotationIntervalSeconds) 秒"
+              : "Codex 自动刷新已暂停"
+          )
             .font(.caption)
             .foregroundStyle(.secondary)
         }
@@ -157,16 +164,16 @@ struct MenuBarContentView: View {
     .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 10))
   }
 
-  private func chooseCustomImage() {
+  private func chooseCustomImages() {
     let panel = NSOpenPanel()
-    panel.title = "选择要显示在键盘上的图片"
+    panel.title = "选择要轮播显示的图片"
     panel.prompt = "选择图片"
     panel.allowedContentTypes = [.image]
-    panel.allowsMultipleSelection = false
+    panel.allowsMultipleSelection = true
     panel.canChooseDirectories = false
 
-    if panel.runModal() == .OK, let url = panel.url {
-      model.selectCustomImage(at: url)
+    if panel.runModal() == .OK {
+      model.selectCustomImages(at: panel.urls)
     }
   }
 }

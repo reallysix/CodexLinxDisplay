@@ -1,6 +1,20 @@
 import AppKit
 import SwiftUI
 
+enum CustomImageContentMode: String, CaseIterable, Identifiable {
+  case fill
+  case fit
+
+  var id: String { rawValue }
+
+  var title: String {
+    switch self {
+    case .fill: return "填充裁剪"
+    case .fit: return "完整显示"
+    }
+  }
+}
+
 enum UsageCardRendererError: LocalizedError {
   case renderFailed
   case encodingFailed
@@ -33,7 +47,8 @@ enum CustomImageRenderer {
   static func render(
     image: NSImage,
     safeAreaHeight: CGFloat,
-    jpegQuality: Double
+    jpegQuality: Double,
+    contentMode: CustomImageContentMode = .fill
   ) throws -> RenderedUsageCard {
     let safeArea = max(
       UsageCardLayout.minimumSafeArea,
@@ -45,11 +60,21 @@ enum CustomImageRenderer {
       Color.black
         .frame(width: UsageCardLayout.width, height: safeArea)
 
-      Image(nsImage: image)
-        .resizable()
-        .scaledToFill()
-        .frame(width: UsageCardLayout.width, height: contentHeight)
-        .clipped()
+      Group {
+        switch contentMode {
+        case .fill:
+          Image(nsImage: image)
+            .resizable()
+            .scaledToFill()
+        case .fit:
+          Image(nsImage: image)
+            .resizable()
+            .scaledToFit()
+        }
+      }
+      .frame(width: UsageCardLayout.width, height: contentHeight)
+      .background(Color.black)
+      .clipped()
     }
     .frame(width: UsageCardLayout.width, height: UsageCardLayout.height)
     .background(Color.black)
